@@ -22,6 +22,9 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.testing.junit4.BaseCoreFunctionalTestCase;
 import org.junit.Test;
 
+import my.project.Foo;
+import my.project.ShouldValidate;
+
 /**
  * This template demonstrates how to develop a test case for Hibernate ORM, using its built-in unit test framework.
  * Although ORMStandaloneTestCase is perfectly acceptable as a reproducer, usage of this class is much preferred.
@@ -37,8 +40,8 @@ public class ORMUnitTestCase extends BaseCoreFunctionalTestCase {
 	@Override
 	protected Class[] getAnnotatedClasses() {
 		return new Class[] {
-//				Foo.class,
-//				Bar.class
+				ShouldValidate.class,
+				Foo.class
 		};
 	}
 
@@ -73,6 +76,31 @@ public class ORMUnitTestCase extends BaseCoreFunctionalTestCase {
 		Session s = openSession();
 		Transaction tx = s.beginTransaction();
 		// Do stuff...
+		tx.commit();
+		s.close();
+	}
+
+	@Test
+	public void hhh15298Test() {
+		Session s = openSession();
+		Transaction tx = s.beginTransaction();
+
+		// create a foo entity first, which we want to relate to later on
+		s.persist(new Foo(1l));
+
+		ShouldValidate shouldValidate = new ShouldValidate(1l);
+		s.persist(shouldValidate);
+
+		// setting the name will mark the entity as dirty, and it will be flushed
+		shouldValidate.setName("Got a name now");
+
+		// try to associate with foo
+		Foo foo = s.createQuery("from Foo where id = 1", Foo.class).list().iterator().next();
+		shouldValidate.setFoo(foo);
+
+		// @PreUpdate validation expected, but operation failed already
+		s.saveOrUpdate(shouldValidate);
+
 		tx.commit();
 		s.close();
 	}
